@@ -38,6 +38,7 @@ data class RoomInfo(
 data class RoomState(
     var chapterUrl: String = "",
     var pageIndex: Int = 0,
+    var scrollOffsetRatio: Float = 0f,
     var updatedBy: String = "",
     var updatedAt: Long = System.currentTimeMillis(),
 )

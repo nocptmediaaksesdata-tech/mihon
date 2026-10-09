@@ -77,6 +77,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderProgressIndicator
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.R2LPagerViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewer
+import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonViewer
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.readerBackgroundColor
@@ -255,7 +256,6 @@ class ReaderActivity : BaseActivity() {
         // MihonBareng remote sync listener
         appGraph.mihonBarengManager.remoteState
             .filterNotNull()
-            .distinctUntilChanged()
             .onEach { remote ->
                 val session = appGraph.mihonBarengManager.sessionState.value
                 if (session is BarengSessionState.Active && !session.isHost &&
@@ -269,13 +269,37 @@ class ReaderActivity : BaseActivity() {
                             remote.chapterUrl
                         ) {
                             loadPreviousChapter()
+                        } else {
+                            lifecycleScope.launchIO {
+                                val mangaId = viewModel.state.value.manga?.id
+                                if (mangaId != null) {
+                                    val newChapter = appGraph.getChapterByUrlAndMangaId.await(
+                                        remote.chapterUrl,
+                                        mangaId,
+                                    )
+                                    if (newChapter != null) {
+                                        val intent = ReaderActivity.newIntent(
+                                            this@ReaderActivity,
+                                            mangaId,
+                                            newChapter.id,
+                                        )
+                                        startActivity(intent)
+                                    }
+                                }
+                            }
                         }
                     }
-                    val currentPageIdx = viewModel.state.value.currentPage - 1
-                    if (remote.pageIndex in 0 until viewModel.state.value.totalPages &&
-                        remote.pageIndex != currentPageIdx
-                    ) {
-                        moveToPageIndex(remote.pageIndex)
+
+                    val viewer = viewModel.state.value.viewer as? WebtoonViewer
+                    if (viewer != null) {
+                        viewer.scrollToOffsetRatio(remote.pageIndex, remote.scrollOffsetRatio)
+                    } else {
+                        val currentPageIdx = viewModel.state.value.currentPage - 1
+                        if (remote.pageIndex in 0 until viewModel.state.value.totalPages &&
+                            remote.pageIndex != currentPageIdx
+                        ) {
+                            moveToPageIndex(remote.pageIndex)
+                        }
                     }
                 }
             }
@@ -298,7 +322,15 @@ class ReaderActivity : BaseActivity() {
         appGraph.mihonBarengManager.sessionState
             .onEach { session ->
                 if (session is BarengSessionState.Active) {
-                    viewModel.setMangaReadingMode(ReadingMode.WEBTOON)
+                    val currentMode = viewModel.getMangaReadingMode()
+                    if (currentMode != ReadingMode.WEBTOON.flagValue &&
+                        currentMode != ReadingMode.CONTINUOUS_VERTICAL.flagValue
+                    ) {
+                        viewModel.setMangaReadingMode(ReadingMode.WEBTOON)
+                    }
+                    if (viewModel.state.value.viewer !is WebtoonViewer) {
+                        updateViewer()
+                    }
                 }
             }
             .launchIn(lifecycleScope)
@@ -626,7 +658,13 @@ class ReaderActivity : BaseActivity() {
      */
     private fun updateViewer() {
         val prevViewer = viewModel.state.value.viewer
-        val newViewer = ReadingMode.toViewer(viewModel.getMangaReadingMode(), this)
+        val isBarengActive = appGraph.mihonBarengManager.sessionState.value is BarengSessionState.Active
+        val mode = if (isBarengActive) {
+            ReadingMode.WEBTOON.flagValue
+        } else {
+            viewModel.getMangaReadingMode()
+        }
+        val newViewer = ReadingMode.toViewer(mode, this)
 
         if (window.sharedElementEnterTransition is MaterialContainerTransform) {
             // Wait until transition is complete to avoid crash on API 26
@@ -780,6 +818,21 @@ class ReaderActivity : BaseActivity() {
     fun onPageSelected(page: ReaderPage) {
         viewModel.onPageSelected(page)
         appGraph.mihonBarengManager.updatePage(page.number - 1)
+    }
+
+    fun onWebtoonScrolled(isIdle: Boolean) {
+        val session = appGraph.mihonBarengManager.sessionState.value
+        if (session is BarengSessionState.Active && session.isHost) {
+            val viewer = viewModel.state.value.viewer as? WebtoonViewer ?: return
+            val scrollPos = viewer.getCurrentScrollPosition() ?: return
+            val currChapter = viewModel.state.value.currentChapter?.chapter
+            appGraph.mihonBarengManager.updateScrollPosition(
+                pageIndex = scrollPos.first,
+                scrollOffsetRatio = scrollPos.second,
+                chapterUrl = currChapter?.url,
+                force = isIdle,
+            )
+        }
     }
 
     /**

@@ -23,6 +23,7 @@ import mihon.app.di.appGraph
 import tachiyomi.core.common.util.system.logcat
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 /**
  * Implementation of a [Viewer] to display pages with a [RecyclerView].
@@ -82,8 +83,16 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
         recycler.adapter = adapter
         recycler.addOnScrollListener(
             object : RecyclerView.OnScrollListener() {
+                override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+                    super.onScrollStateChanged(recyclerView, newState)
+                    if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+                        activity.onWebtoonScrolled(isIdle = true)
+                    }
+                }
+
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
                     onScrolled()
+                    activity.onWebtoonScrolled(isIdle = false)
 
                     if ((dy > threshold || dy < -threshold) && activity.viewModel.state.value.menuVisible) {
                         activity.hideMenu()
@@ -257,6 +266,38 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
             }
         } else {
             logcat { "Page $page not found in adapter" }
+        }
+    }
+
+    fun getCurrentScrollPosition(): Pair<Int, Float>? {
+        val firstPos = layoutManager.findFirstVisibleItemPosition()
+        if (firstPos == RecyclerView.NO_POSITION) return null
+        val child = layoutManager.findViewByPosition(firstPos) ?: return null
+        val item = adapter.items.getOrNull(firstPos)
+        val targetItem = if (item is ReaderPage) item else adapter.items.getOrNull(firstPos + 1) as? ReaderPage
+        val targetChild = if (item is ReaderPage) child else layoutManager.findViewByPosition(firstPos + 1)
+        if (targetItem != null && targetChild != null && targetChild.height > 0) {
+            val topOffset = -targetChild.top.toFloat()
+            val ratio = (topOffset / targetChild.height.toFloat()).coerceIn(0f, 1f)
+            return Pair(targetItem.number - 1, ratio)
+        }
+        return null
+    }
+
+    fun scrollToOffsetRatio(pageIndex: Int, offsetRatio: Float) {
+        val page = adapter.items.filterIsInstance<ReaderPage>().firstOrNull { it.number - 1 == pageIndex }
+        if (page != null) {
+            val adapterPos = adapter.items.indexOf(page)
+            if (adapterPos != -1) {
+                val child = layoutManager.findViewByPosition(adapterPos)
+                val itemHeight = if (child != null && child.height > 0) {
+                    child.height
+                } else {
+                    recycler.height.takeIf { it > 0 } ?: 1000
+                }
+                val offsetPx = (-offsetRatio.coerceIn(0f, 1f) * itemHeight).roundToInt()
+                layoutManager.scrollToPositionWithOffset(adapterPos, offsetPx)
+            }
         }
     }
 

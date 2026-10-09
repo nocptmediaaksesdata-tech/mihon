@@ -340,7 +340,9 @@ class MihonBarengManager(
         pointerListener = null
     }
 
-    fun updatePage(pageIndex: Int, chapterUrl: String? = null) {
+    private var lastScrollSyncTime = 0L
+
+    fun updatePage(pageIndex: Int, scrollOffsetRatio: Float = 0f, chapterUrl: String? = null) {
         val active = _sessionState.value as? BarengSessionState.Active ?: return
         val roomRef = currentRoomRef ?: return
 
@@ -355,11 +357,38 @@ class MihonBarengManager(
             val state = RoomState(
                 chapterUrl = chapterUrl ?: active.roomInfo.chapterUrl,
                 pageIndex = pageIndex,
+                scrollOffsetRatio = scrollOffsetRatio,
                 updatedBy = active.currentUserId,
                 updatedAt = System.currentTimeMillis(),
             )
             roomRef.child("state").setValue(state)
         }
+    }
+
+    fun updateScrollPosition(
+        pageIndex: Int,
+        scrollOffsetRatio: Float,
+        chapterUrl: String? = null,
+        force: Boolean = false,
+    ) {
+        val active = _sessionState.value as? BarengSessionState.Active ?: return
+        if (!active.isHost) return
+        val roomRef = currentRoomRef ?: return
+
+        val now = System.currentTimeMillis()
+        if (!force && now - lastScrollSyncTime < 50L) {
+            return
+        }
+        lastScrollSyncTime = now
+
+        val state = RoomState(
+            chapterUrl = chapterUrl ?: active.roomInfo.chapterUrl,
+            pageIndex = pageIndex,
+            scrollOffsetRatio = scrollOffsetRatio,
+            updatedBy = active.currentUserId,
+            updatedAt = now,
+        )
+        roomRef.child("state").setValue(state)
     }
 
     fun updateChapter(chapterUrl: String, chapterName: String) {

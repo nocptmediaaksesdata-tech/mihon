@@ -28,6 +28,7 @@ import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
 import mihon.feature.mihonbareng.MihonBarengManager
 import mihon.feature.mihonbareng.MihonBarengPreferences
+import mihon.feature.mihonbareng.MihonBarengResolver
 
 @Composable
 fun MihonBarengJoinDialog(
@@ -123,24 +124,18 @@ fun MihonBarengJoinDialog(
                         val roomInfo = result.getOrNull()
                         if (roomInfo != null) {
                             val graph = context.appGraph
-                            val localManga = graph.getMangaByUrlAndSourceId.await(roomInfo.mangaUrl, roomInfo.sourceId)
-                            val localChapter = if (localManga != null) {
-                                graph.getChapterByUrlAndMangaId.await(roomInfo.chapterUrl, localManga.id)
-                            } else {
-                                null
-                            }
-
-                            if (localManga != null && localChapter != null) {
-                                onDismissRequest()
-                                onOpenReader(localManga.id, localChapter.id)
-                            } else {
-                                onDismissRequest()
-                                Toast.makeText(
-                                    context,
-                                    "Berhasil bergabung ke room ${roomInfo.roomId}! Silakan buka komik '${roomInfo.mangaTitle}' di library/sumber untuk sinkron.",
-                                    Toast.LENGTH_LONG,
-                                ).show()
-                            }
+                            MihonBarengResolver.resolveAndOpen(
+                                graph = graph,
+                                roomInfo = roomInfo,
+                                onSuccess = { mangaId, chapterId ->
+                                    onDismissRequest()
+                                    onOpenReader(mangaId, chapterId)
+                                },
+                                onError = { message ->
+                                    onDismissRequest()
+                                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                                },
+                            )
                         }
                     }
                 },

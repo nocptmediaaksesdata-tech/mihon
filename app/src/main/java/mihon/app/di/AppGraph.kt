@@ -45,6 +45,7 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import mihon.core.metro.IsDebugBuild
 import mihon.domain.extension.interactor.GetExtensionStoreCountAsFlow
 import mihon.domain.extension.repository.ExtensionStoreRepository
+import mihon.domain.source.interactor.UpdateMangaFromRemote
 import mihon.feature.mihonbareng.MihonBarengManager
 import mihon.feature.mihonbareng.MihonBarengPreferences
 import nl.adaptivity.xmlutil.serialization.XML
@@ -56,6 +57,7 @@ import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.interactor.GetMangaByUrlAndSourceId
+import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.interactor.ResetViewerFlags
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.storage.service.StoragePreferences
@@ -102,6 +104,8 @@ interface AppGraph : ViewModelGraph {
     val mihonBarengManager: MihonBarengManager
     val getMangaByUrlAndSourceId: GetMangaByUrlAndSourceId
     val getChapterByUrlAndMangaId: GetChapterByUrlAndMangaId
+    val networkToLocalManga: NetworkToLocalManga
+    val updateMangaFromRemote: UpdateMangaFromRemote
 
     val crashLogUtil: CrashLogUtil
 

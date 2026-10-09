@@ -54,9 +54,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import kotlinx.coroutines.launch
+import mihon.app.di.appGraph
 import mihon.feature.mihonbareng.MihonBarengManager
 import mihon.feature.mihonbareng.MihonBarengPreferences
+import mihon.feature.mihonbareng.MihonBarengResolver
 import mihon.feature.mihonbareng.model.BarengSessionState
 import mihon.feature.mihonbareng.model.BarengSyncMode
 import mihon.feature.mihonbareng.model.Participant
@@ -151,6 +154,24 @@ fun MihonBarengSheet(
                                         result.exceptionOrNull()?.localizedMessage ?: "Gagal gabung room",
                                         Toast.LENGTH_LONG,
                                     ).show()
+                                } else {
+                                    val roomInfo = result.getOrNull()
+                                    if (roomInfo != null) {
+                                        val graph = context.appGraph
+                                        MihonBarengResolver.resolveAndOpen(
+                                            graph = graph,
+                                            roomInfo = roomInfo,
+                                            onSuccess = { mangaId, chapterId ->
+                                                onDismissRequest()
+                                                context.startActivity(
+                                                    ReaderActivity.newIntent(context, mangaId, chapterId),
+                                                )
+                                            },
+                                            onError = { message ->
+                                                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         },
