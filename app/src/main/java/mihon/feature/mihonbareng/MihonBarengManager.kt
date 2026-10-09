@@ -126,7 +126,9 @@ class MihonBarengManager(
                 return currentUserId
             }
         } catch (e: Exception) {
-            logcat(LogPriority.WARN, e) { "Firebase Anonymous Auth not available, using persistent device UUID fallback" }
+            logcat(LogPriority.WARN, e) {
+                "Firebase Anonymous Auth not available, using persistent device UUID fallback"
+            }
         }
 
         currentUserId = preferences.getOrCreateUserId()
@@ -148,7 +150,11 @@ class MihonBarengManager(
         syncMode: BarengSyncMode = preferences.defaultSyncMode.get(),
     ): Result<RoomInfo> {
         val db = getDatabase()
-            ?: return Result.failure(IllegalStateException("Firebase Realtime Database belum terkonfigurasi. Pastikan google-services.json ada atau masukkan Database URL di Pengaturan."))
+            ?: return Result.failure(
+                IllegalStateException(
+                    "Firebase Realtime Database belum terkonfigurasi. Pastikan google-services.json ada atau masukkan Database URL di Pengaturan.",
+                ),
+            )
 
         _sessionState.value = BarengSessionState.Connecting("Membuat room MihonBareng...")
 
@@ -340,7 +346,9 @@ class MihonBarengManager(
 
         // Update participant's own page progress
         roomRef.child("participants").child(active.currentUserId).child("currentPage").setValue(pageIndex)
-        roomRef.child("participants").child(active.currentUserId).child("lastActive").setValue(System.currentTimeMillis())
+        roomRef.child(
+            "participants",
+        ).child(active.currentUserId).child("lastActive").setValue(System.currentTimeMillis())
 
         // If host, update room state
         if (active.isHost) {
@@ -367,7 +375,7 @@ class MihonBarengManager(
                 pageIndex = 0,
                 updatedBy = active.currentUserId,
                 updatedAt = System.currentTimeMillis(),
-            )
+            ),
         )
     }
 

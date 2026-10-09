@@ -433,8 +433,13 @@ private fun ActiveRoomView(
                     .background(Color(0xFF4CAF50)),
             )
             Spacer(modifier = Modifier.width(8.dp))
+            val modeLabel = if (state.roomInfo.mode == BarengSyncMode.STRICT) {
+                "Strict Sync (Host Mengontrol)"
+            } else {
+                "Loose Sync (Bebas)"
+            }
             Text(
-                text = "Mode: ${if (state.roomInfo.mode == BarengSyncMode.STRICT) "Strict Sync (Host Mengontrol)" else "Loose Sync (Bebas)"}",
+                text = "Mode: $modeLabel",
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.Medium,
             )

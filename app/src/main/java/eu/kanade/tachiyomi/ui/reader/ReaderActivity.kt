@@ -255,17 +255,23 @@ class ReaderActivity : BaseActivity() {
             .distinctUntilChanged()
             .onEach { remote ->
                 val session = appGraph.mihonBarengManager.sessionState.value
-                if (session is BarengSessionState.Active && !session.isHost && session.roomInfo.mode == BarengSyncMode.STRICT) {
+                if (session is BarengSessionState.Active && !session.isHost &&
+                    session.roomInfo.mode == BarengSyncMode.STRICT
+                ) {
                     val currChapter = viewModel.state.value.currentChapter?.chapter
                     if (currChapter != null && remote.chapterUrl.isNotEmpty() && remote.chapterUrl != currChapter.url) {
                         if (viewModel.state.value.viewerChapters?.nextChapter?.chapter?.url == remote.chapterUrl) {
                             loadNextChapter()
-                        } else if (viewModel.state.value.viewerChapters?.prevChapter?.chapter?.url == remote.chapterUrl) {
+                        } else if (viewModel.state.value.viewerChapters?.prevChapter?.chapter?.url ==
+                            remote.chapterUrl
+                        ) {
                             loadPreviousChapter()
                         }
                     }
                     val currentPageIdx = viewModel.state.value.currentPage - 1
-                    if (remote.pageIndex in 0 until viewModel.state.value.totalPages && remote.pageIndex != currentPageIdx) {
+                    if (remote.pageIndex in 0 until viewModel.state.value.totalPages &&
+                        remote.pageIndex != currentPageIdx
+                    ) {
                         moveToPageIndex(remote.pageIndex)
                     }
                 }
