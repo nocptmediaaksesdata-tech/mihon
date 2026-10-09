@@ -283,6 +283,11 @@ dependencies {
     implementation(libs.metrox.viewmodel)
     implementation(libs.metrox.viewmodel.compose)
 
+    // MihonBareng (Firebase)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.database)
+    implementation(libs.firebase.auth)
+
     // Image loading
     implementation(libs.bundles.coil)
     implementation(libs.subsamplingScaleImageView) {

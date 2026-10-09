@@ -17,6 +17,7 @@ import mihon.icons.materialsymbols.automirroredrounded.Label
 import mihon.icons.materialsymbols.rounded.CloudOff
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Info
+import mihon.icons.materialsymbols.rounded.PeopleAlt
 import mihon.icons.materialsymbols.rounded.QueryStats
 import mihon.icons.materialsymbols.rounded.Settings
 import mihon.icons.materialsymbols.rounded.Storage
@@ -39,6 +40,7 @@ fun MoreScreen(
     onClickCategories: () -> Unit,
     onClickStats: () -> Unit,
     onClickDataAndStorage: () -> Unit,
+    onClickMihonBareng: () -> Unit,
     onClickSettings: () -> Unit,
     onClickSupport: () -> Unit,
     onClickAbout: () -> Unit,
@@ -121,6 +123,14 @@ fun MoreScreen(
                     title = stringResource(MR.strings.label_data_storage),
                     icon = MaterialSymbols.Rounded.Storage,
                     onPreferenceClick = onClickDataAndStorage,
+                )
+            }
+            item {
+                TextPreferenceWidget(
+                    title = "MihonBareng",
+                    subtitle = "Gabung room untuk baca manga bareng teman",
+                    icon = MaterialSymbols.Rounded.PeopleAlt,
+                    onPreferenceClick = onClickMihonBareng,
                 )
             }
 

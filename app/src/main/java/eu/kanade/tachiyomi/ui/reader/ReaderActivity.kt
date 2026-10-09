@@ -93,6 +93,10 @@ import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
+import mihon.feature.mihonbareng.model.BarengSessionState
+import mihon.feature.mihonbareng.model.BarengSyncMode
+import mihon.feature.mihonbareng.ui.MihonBarengOverlay
+import mihon.feature.mihonbareng.ui.MihonBarengSheet
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
@@ -244,6 +248,51 @@ class ReaderActivity : BaseActivity() {
                 }
             }
             .launchIn(lifecycleScope)
+
+        // MihonBareng remote sync listener
+        appGraph.mihonBarengManager.remoteState
+            .filterNotNull()
+            .distinctUntilChanged()
+            .onEach { remote ->
+                val session = appGraph.mihonBarengManager.sessionState.value
+                if (session is BarengSessionState.Active && !session.isHost && session.roomInfo.mode == BarengSyncMode.STRICT) {
+                    val currChapter = viewModel.state.value.currentChapter?.chapter
+                    if (currChapter != null && remote.chapterUrl.isNotEmpty() && remote.chapterUrl != currChapter.url) {
+                        if (viewModel.state.value.viewerChapters?.nextChapter?.chapter?.url == remote.chapterUrl) {
+                            loadNextChapter()
+                        } else if (viewModel.state.value.viewerChapters?.prevChapter?.chapter?.url == remote.chapterUrl) {
+                            loadPreviousChapter()
+                        }
+                    }
+                    val currentPageIdx = viewModel.state.value.currentPage - 1
+                    if (remote.pageIndex in 0 until viewModel.state.value.totalPages && remote.pageIndex != currentPageIdx) {
+                        moveToPageIndex(remote.pageIndex)
+                    }
+                }
+            }
+            .launchIn(lifecycleScope)
+
+        // MihonBareng host chapter change publisher
+        viewModel.state
+            .map { it.currentChapter }
+            .distinctUntilChanged()
+            .filterNotNull()
+            .onEach { chapter ->
+                val session = appGraph.mihonBarengManager.sessionState.value
+                if (session is BarengSessionState.Active && session.isHost) {
+                    appGraph.mihonBarengManager.updateChapter(chapter.chapter.url, chapter.chapter.name)
+                }
+            }
+            .launchIn(lifecycleScope)
+
+        // MihonBareng auto-lock Webtoon reading mode when session is active
+        appGraph.mihonBarengManager.sessionState
+            .onEach { session ->
+                if (session is BarengSessionState.Active) {
+                    viewModel.setMangaReadingMode(ReadingMode.WEBTOON.flagValue)
+                }
+            }
+            .launchIn(lifecycleScope)
     }
 
     private fun ReaderActivityBinding.setComposeOverlay(): Unit = composeOverlay.setComposeContent {
@@ -258,6 +307,8 @@ class ReaderActivity : BaseActivity() {
             )
         }
 
+        var showMihonBarengSheet by remember { mutableStateOf(false) }
+
         Box(modifier = Modifier.fillMaxSize()) {
             if (!state.menuVisible && showPageNumber) {
                 ReaderPageIndicator(
@@ -271,7 +322,27 @@ class ReaderActivity : BaseActivity() {
 
             ContentOverlay(state = state)
 
-            AppBars(state = state)
+            MihonBarengOverlay(
+                manager = appGraph.mihonBarengManager,
+                currentPage = state.currentPage,
+                onJumpToPage = ::moveToPageIndex,
+            )
+
+            AppBars(
+                state = state,
+                onMihonBarengClick = { showMihonBarengSheet = true },
+            )
+        }
+
+        if (showMihonBarengSheet) {
+            MihonBarengSheet(
+                onDismissRequest = { showMihonBarengSheet = false },
+                manager = appGraph.mihonBarengManager,
+                preferences = appGraph.mihonBarengPreferences,
+                currentManga = state.manga,
+                currentChapter = state.currentChapter?.chapter,
+                sourceId = state.source?.id ?: 0L,
+            )
         }
 
         val onDismissRequest = viewModel::closeDialog
@@ -338,6 +409,9 @@ class ReaderActivity : BaseActivity() {
      */
     override fun onDestroy() {
         super.onDestroy()
+        if (isFinishing) {
+            appGraph.mihonBarengManager.leaveRoom()
+        }
         viewModel.state.value.viewer?.destroy()
         config = null
         menuToggleToast?.cancel()
@@ -447,7 +521,10 @@ class ReaderActivity : BaseActivity() {
     }
 
     @Composable
-    fun AppBars(state: ReaderViewModel.State) {
+    fun AppBars(
+        state: ReaderViewModel.State,
+        onMihonBarengClick: () -> Unit,
+    ) {
         val isHttpSource = state.source is HttpSource
 
         val cropBorderPaged by readerPreferences.cropBorders.collectAsState()
@@ -474,6 +551,7 @@ class ReaderActivity : BaseActivity() {
             onOpenInWebView = ::openChapterInWebView.takeIf { isHttpSource },
             onOpenInBrowser = ::openChapterInBrowser.takeIf { isHttpSource },
             onShare = ::shareChapter.takeIf { isHttpSource },
+            onMihonBarengClick = onMihonBarengClick,
 
             chapterNavigatorType = if (!verticalNavigator) {
                 if (state.viewer is R2LPagerViewer || (state.viewer as? WebGpuViewer)?.isReversed ?: false) {
@@ -691,6 +769,7 @@ class ReaderActivity : BaseActivity() {
      */
     fun onPageSelected(page: ReaderPage) {
         viewModel.onPageSelected(page)
+        appGraph.mihonBarengManager.updatePage(page.number - 1)
     }
 
     /**

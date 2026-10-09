@@ -5,8 +5,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
-import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Bookmark
+import mihon.icons.materialsymbols.rounded.PeopleAlt
 import mihon.icons.materialsymbols.roundedfilled.Bookmark
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -21,6 +21,7 @@ fun ReaderTopBar(
     onOpenInWebView: (() -> Unit)?,
     onOpenInBrowser: (() -> Unit)?,
     onShare: (() -> Unit)?,
+    onMihonBarengClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     AppBar(
@@ -32,6 +33,15 @@ fun ReaderTopBar(
         actions = {
             AppBarActions(
                 actions = buildList {
+                    onMihonBarengClick?.let {
+                        add(
+                            AppBar.Action(
+                                title = "MihonBareng",
+                                icon = MaterialSymbols.Rounded.PeopleAlt,
+                                onClick = it,
+                            ),
+                        )
+                    }
                     add(
                         AppBar.Action(
                             title = stringResource(
