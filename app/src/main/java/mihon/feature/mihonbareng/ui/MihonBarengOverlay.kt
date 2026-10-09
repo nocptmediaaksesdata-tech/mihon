@@ -1,11 +1,8 @@
 package mihon.feature.mihonbareng.ui
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -29,11 +26,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,7 +46,6 @@ import kotlinx.coroutines.launch
 import mihon.feature.mihonbareng.MihonBarengManager
 import mihon.feature.mihonbareng.model.BarengSessionState
 import mihon.feature.mihonbareng.model.BarengSyncMode
-import mihon.feature.mihonbareng.model.LiveReaction
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
