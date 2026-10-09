@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -63,7 +64,6 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.ContentCopy
 import mihon.icons.materialsymbols.rounded.PeopleAlt
 import mihon.icons.materialsymbols.rounded.Person
-import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -73,7 +73,8 @@ fun MihonBarengSheet(
     manager: MihonBarengManager,
     preferences: MihonBarengPreferences,
     currentManga: Manga?,
-    currentChapter: Chapter?,
+    currentChapterUrl: String? = null,
+    currentChapterName: String? = null,
     sourceId: Long,
 ) {
     val context = LocalContext.current
@@ -128,8 +129,8 @@ fun MihonBarengSheet(
                                     mangaTitle = currentManga?.title ?: "Manga",
                                     mangaUrl = currentManga?.url ?: "",
                                     sourceId = sourceId,
-                                    chapterUrl = currentChapter?.url ?: "",
-                                    chapterName = currentChapter?.name ?: "Chapter 1",
+                                    chapterUrl = currentChapterUrl ?: "",
+                                    chapterName = currentChapterName ?: "Chapter 1",
                                     syncMode = syncMode,
                                 )
                                 if (result.isFailure) {
@@ -161,7 +162,7 @@ fun MihonBarengSheet(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 32.dp),
-                        horizontalAlignment = Alignment.CenterVertically,
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         CircularProgressIndicator()
                         Spacer(modifier = Modifier.height(16.dp))
@@ -193,7 +194,7 @@ fun MihonBarengSheet(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 16.dp),
-                        horizontalAlignment = Alignment.CenterVertically,
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(
                             text = state.message,
@@ -215,7 +216,7 @@ fun MihonBarengSheet(
 }
 
 @Composable
-private fun IdleView(
+private fun ColumnScope.IdleView(
     preferences: MihonBarengPreferences,
     onCreateRoom: (BarengSyncMode) -> Unit,
     onJoinRoom: (String) -> Unit,

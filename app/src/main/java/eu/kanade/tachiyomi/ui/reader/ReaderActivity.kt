@@ -31,7 +31,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -92,6 +94,7 @@ import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.app.di.AppGraph
+import mihon.app.di.appGraph
 import mihon.core.metro.metroGraph
 import mihon.feature.mihonbareng.model.BarengSessionState
 import mihon.feature.mihonbareng.model.BarengSyncMode
@@ -295,7 +298,7 @@ class ReaderActivity : BaseActivity() {
         appGraph.mihonBarengManager.sessionState
             .onEach { session ->
                 if (session is BarengSessionState.Active) {
-                    viewModel.setMangaReadingMode(ReadingMode.WEBTOON.flagValue)
+                    viewModel.setMangaReadingMode(ReadingMode.WEBTOON)
                 }
             }
             .launchIn(lifecycleScope)
@@ -346,7 +349,8 @@ class ReaderActivity : BaseActivity() {
                 manager = appGraph.mihonBarengManager,
                 preferences = appGraph.mihonBarengPreferences,
                 currentManga = state.manga,
-                currentChapter = state.currentChapter?.chapter,
+                currentChapterUrl = state.currentChapter?.chapter?.url,
+                currentChapterName = state.currentChapter?.chapter?.name,
                 sourceId = state.source?.id ?: 0L,
             )
         }
