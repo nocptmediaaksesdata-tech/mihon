@@ -1,11 +1,13 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.webtoon
 
+import android.animation.ValueAnimator
 import android.graphics.PointF
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import android.view.animation.LinearInterpolator
 import androidx.core.app.ActivityCompat
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
@@ -21,6 +23,7 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import mihon.app.di.appGraph
 import tachiyomi.core.common.util.system.logcat
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -201,6 +204,8 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
      */
     override fun destroy() {
         super.destroy()
+        scrollAnimator?.cancel()
+        scrollAnimator = null
         scope.cancel()
     }
 
@@ -284,21 +289,39 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
         return null
     }
 
+    private var scrollAnimator: ValueAnimator? = null
+
     fun scrollToOffsetRatio(pageIndex: Int, offsetRatio: Float) {
-        val page = adapter.items.filterIsInstance<ReaderPage>().firstOrNull { it.number - 1 == pageIndex }
-        if (page != null) {
-            val adapterPos = adapter.items.indexOf(page)
-            if (adapterPos != -1) {
-                val child = layoutManager.findViewByPosition(adapterPos)
-                val itemHeight = if (child != null && child.height > 0) {
-                    child.height
-                } else {
-                    recycler.height.takeIf { it > 0 } ?: 1000
+        val page = adapter.items.filterIsInstance<ReaderPage>().firstOrNull { it.number - 1 == pageIndex } ?: return
+        val adapterPos = adapter.items.indexOf(page)
+        if (adapterPos == -1) return
+
+        val child = layoutManager.findViewByPosition(adapterPos)
+        if (child != null && child.height > 0) {
+            val targetTop = (-offsetRatio.coerceIn(0f, 1f) * child.height).roundToInt()
+            val dy = child.top - targetTop
+            if (abs(dy) in 2..800) {
+                scrollAnimator?.cancel()
+                var lastVal = 0
+                scrollAnimator = ValueAnimator.ofInt(0, dy).apply {
+                    duration = 60L
+                    interpolator = LinearInterpolator()
+                    addUpdateListener { anim ->
+                        val currentVal = anim.animatedValue as Int
+                        val step = currentVal - lastVal
+                        lastVal = currentVal
+                        recycler.scrollBy(0, step)
+                    }
+                    start()
                 }
-                val offsetPx = (-offsetRatio.coerceIn(0f, 1f) * itemHeight).roundToInt()
-                layoutManager.scrollToPositionWithOffset(adapterPos, offsetPx)
+                return
             }
         }
+
+        scrollAnimator?.cancel()
+        val itemHeight = child?.height ?: (recycler.height.takeIf { it > 0 } ?: 1000)
+        val offsetPx = (-offsetRatio.coerceIn(0f, 1f) * itemHeight).roundToInt()
+        layoutManager.scrollToPositionWithOffset(adapterPos, offsetPx)
     }
 
     fun onScrolled(pos: Int? = null) {

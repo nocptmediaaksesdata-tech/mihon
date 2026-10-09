@@ -817,7 +817,7 @@ class ReaderActivity : BaseActivity() {
      */
     fun onPageSelected(page: ReaderPage) {
         viewModel.onPageSelected(page)
-        appGraph.mihonBarengManager.updatePage(page.number - 1)
+        appGraph.mihonBarengManager.updateParticipantPage(page.number - 1)
     }
 
     fun onWebtoonScrolled(isIdle: Boolean) {

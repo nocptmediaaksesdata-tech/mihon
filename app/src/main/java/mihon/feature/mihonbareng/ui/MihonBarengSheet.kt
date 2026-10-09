@@ -203,6 +203,9 @@ fun MihonBarengSheet(
                             clipboard.setPrimaryClip(ClipData.newPlainText("Room Code", code))
                             Toast.makeText(context, "Kode room $code disalin!", Toast.LENGTH_SHORT).show()
                         },
+                        onUpdateSyncMode = { newMode ->
+                            manager.updateSyncMode(newMode)
+                        },
                         onLeaveRoom = {
                             manager.leaveRoom()
                             onDismissRequest()
@@ -399,6 +402,7 @@ private fun ActiveRoomView(
     state: BarengSessionState.Active,
     participants: List<Participant>,
     onCopyCode: (String) -> Unit,
+    onUpdateSyncMode: (BarengSyncMode) -> Unit,
     onLeaveRoom: () -> Unit,
 ) {
     Column {
@@ -446,25 +450,98 @@ private fun ActiveRoomView(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Mode badge
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
+        // Mode Control
+        if (state.isHost) {
+            Column(
                 modifier = Modifier
-                    .size(10.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF4CAF50)),
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            val modeLabel = if (state.roomInfo.mode == BarengSyncMode.STRICT) {
-                "Strict Sync (Host Mengontrol)"
-            } else {
-                "Loose Sync (Bebas)"
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                    .padding(12.dp),
+            ) {
+                Text(
+                    text = "Mode Sinkronisasi (Host Kontrol):",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    val isStrict = state.roomInfo.mode == BarengSyncMode.STRICT
+                    OutlinedButton(
+                        onClick = { onUpdateSyncMode(BarengSyncMode.STRICT) },
+                        modifier = Modifier.weight(1f),
+                        colors = if (isStrict) {
+                            ButtonDefaults.outlinedButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
+                        } else {
+                            ButtonDefaults.outlinedButtonColors()
+                        },
+                    ) {
+                        Text(
+                            text = "Strict Sync",
+                            fontWeight = if (isStrict) FontWeight.Bold else FontWeight.Normal,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = { onUpdateSyncMode(BarengSyncMode.LOOSE) },
+                        modifier = Modifier.weight(1f),
+                        colors = if (!isStrict) {
+                            ButtonDefaults.outlinedButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
+                        } else {
+                            ButtonDefaults.outlinedButtonColors()
+                        },
+                    ) {
+                        Text(
+                            text = "Loose Sync",
+                            fontWeight = if (!isStrict) FontWeight.Bold else FontWeight.Normal,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = if (state.roomInfo.mode == BarengSyncMode.STRICT) {
+                        "Layar penonton otomatis mengikuti posisi scroll kamu secara realtime."
+                    } else {
+                        "Penonton bebas scroll masing-masing; indikator posisi tetap terlihat."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
-            Text(
-                text = "Mode: $modeLabel",
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.Medium,
-            )
+        } else {
+            // View-only mode badge for non-host
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (state.roomInfo.mode == BarengSyncMode.STRICT) Color(0xFF4CAF50) else Color(0xFFFF9800),
+                        ),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                val modeLabel = if (state.roomInfo.mode == BarengSyncMode.STRICT) {
+                    "Strict Sync (Host Mengontrol Layar)"
+                } else {
+                    "Loose Sync (Bebas Baca Masing-masing)"
+                }
+                Text(
+                    text = "Mode: $modeLabel",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(12.dp))

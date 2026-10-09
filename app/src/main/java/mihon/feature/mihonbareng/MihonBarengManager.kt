@@ -62,6 +62,7 @@ class MihonBarengManager(
     private var participantsListener: ValueEventListener? = null
     private var reactionListener: ChildEventListener? = null
     private var pointerListener: ValueEventListener? = null
+    private var infoListener: ValueEventListener? = null
 
     private var currentUserId: String = ""
 
@@ -325,6 +326,21 @@ class MihonBarengManager(
 
             override fun onCancelled(error: DatabaseError) {}
         }.also { roomRef.child("pointer").addValueEventListener(it) }
+
+        // 5. Listen for Room Info changes (Mode, Chapter)
+        infoListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val info = snapshot.getValue(RoomInfo::class.java) ?: return
+                val current = _sessionState.value
+                if (current is BarengSessionState.Active) {
+                    _sessionState.value = current.copy(roomInfo = info)
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                logcat(LogPriority.WARN) { "Room info listener cancelled: ${error.message}" }
+            }
+        }.also { roomRef.child("info").addValueEventListener(it) }
     }
 
     private fun detachListeners() {
@@ -333,11 +349,13 @@ class MihonBarengManager(
         participantsListener?.let { roomRef.child("participants").removeEventListener(it) }
         reactionListener?.let { roomRef.child("reactions").removeEventListener(it) }
         pointerListener?.let { roomRef.child("pointer").removeEventListener(it) }
+        infoListener?.let { roomRef.child("info").removeEventListener(it) }
 
         roomStateListener = null
         participantsListener = null
         reactionListener = null
         pointerListener = null
+        infoListener = null
     }
 
     private var lastScrollSyncTime = 0L
@@ -389,6 +407,24 @@ class MihonBarengManager(
             updatedAt = now,
         )
         roomRef.child("state").setValue(state)
+    }
+
+    fun updateParticipantPage(pageIndex: Int) {
+        val active = _sessionState.value as? BarengSessionState.Active ?: return
+        val roomRef = currentRoomRef ?: return
+
+        roomRef.child("participants").child(active.currentUserId).child("currentPage").setValue(pageIndex)
+        roomRef.child(
+            "participants",
+        ).child(active.currentUserId).child("lastActive").setValue(System.currentTimeMillis())
+    }
+
+    fun updateSyncMode(mode: BarengSyncMode) {
+        val active = _sessionState.value as? BarengSessionState.Active ?: return
+        if (!active.isHost) return
+        val roomRef = currentRoomRef ?: return
+
+        roomRef.child("info").child("syncMode").setValue(mode.name)
     }
 
     fun updateChapter(chapterUrl: String, chapterName: String) {
