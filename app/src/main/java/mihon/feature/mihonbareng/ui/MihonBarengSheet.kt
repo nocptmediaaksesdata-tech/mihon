@@ -65,7 +65,7 @@ import mihon.feature.mihonbareng.model.BarengSyncMode
 import mihon.feature.mihonbareng.model.Participant
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.ContentCopy
-import mihon.icons.materialsymbols.rounded.PeopleAlt
+import mihon.icons.materialsymbols.rounded.Group
 import mihon.icons.materialsymbols.rounded.Person
 import tachiyomi.domain.manga.model.Manga
 
@@ -100,7 +100,7 @@ fun MihonBarengSheet(
                 modifier = Modifier.padding(bottom = 12.dp),
             ) {
                 Icon(
-                    imageVector = MaterialSymbols.Rounded.PeopleAlt,
+                    imageVector = MaterialSymbols.Rounded.Group,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(28.dp),

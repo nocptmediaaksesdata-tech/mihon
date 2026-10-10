@@ -7,7 +7,7 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Bookmark
-import mihon.icons.materialsymbols.rounded.PeopleAlt
+import mihon.icons.materialsymbols.rounded.Group
 import mihon.icons.materialsymbols.roundedfilled.Bookmark
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -38,7 +38,7 @@ fun ReaderTopBar(
                         add(
                             AppBar.Action(
                                 title = "MihonBareng",
-                                icon = MaterialSymbols.Rounded.PeopleAlt,
+                                icon = MaterialSymbols.Rounded.Group,
                                 onClick = it,
                             ),
                         )
