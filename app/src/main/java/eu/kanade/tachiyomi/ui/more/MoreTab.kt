@@ -71,6 +71,12 @@ data object MoreTab : Tab {
         val downloadQueueState by viewModel.downloadQueueState.collectAsState()
         var showMihonBarengJoinDialog by remember { mutableStateOf(false) }
 
+        val graph = context.appGraph
+        val lastRoomCode = remember { graph.mihonBarengPreferences.lastRoomCode.get().takeIf { it.isNotEmpty() } }
+        val lastRoomTime = remember { graph.mihonBarengPreferences.lastRoomTimestamp.get() }
+        val isRecent = lastRoomCode != null && (System.currentTimeMillis() - lastRoomTime < 6 * 3600 * 1000L)
+        val recentMihonBarengCode = if (isRecent) lastRoomCode else null
+
         MoreScreen(
             downloadQueueStateProvider = { downloadQueueState },
             downloadedOnly = viewModel.downloadedOnly,
@@ -82,6 +88,7 @@ data object MoreTab : Tab {
             onClickStats = { navigator.push(StatsScreen()) },
             onClickDataAndStorage = { navigator.push(SettingsScreen(SettingsScreen.Destination.DataAndStorage)) },
             onClickMihonBareng = { showMihonBarengJoinDialog = true },
+            recentMihonBarengCode = recentMihonBarengCode,
             onClickSettings = { navigator.push(SettingsScreen()) },
             onClickSupport = { navigator.push(SupportUsScreen()) },
             onClickAbout = { navigator.push(SettingsScreen(SettingsScreen.Destination.About)) },

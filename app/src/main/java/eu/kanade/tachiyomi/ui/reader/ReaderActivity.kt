@@ -399,6 +399,7 @@ class ReaderActivity : BaseActivity() {
 
             MihonBarengOverlay(
                 manager = appGraph.mihonBarengManager,
+                preferences = appGraph.mihonBarengPreferences,
                 currentPage = state.currentPage,
                 onJumpToPage = ::moveToPageIndex,
             )
@@ -543,6 +544,29 @@ class ReaderActivity : BaseActivity() {
         } else {
             @Suppress("DEPRECATION")
             overridePendingTransition(R.anim.shared_axis_x_pop_enter, R.anim.shared_axis_x_pop_exit)
+        }
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        handleHostTouch(ev)
+        return super.dispatchTouchEvent(ev)
+    }
+
+    private fun handleHostTouch(ev: MotionEvent) {
+        val session = appGraph.mihonBarengManager.sessionState.value
+        if (session is BarengSessionState.Active && session.isHost) {
+            val width = window.decorView.width.toFloat().takeIf { it > 0 } ?: 1080f
+            val height = window.decorView.height.toFloat().takeIf { it > 0 } ?: 1920f
+            val x = (ev.rawX / width).coerceIn(0f, 1f)
+            val y = (ev.rawY / height).coerceIn(0f, 1f)
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
+                    appGraph.mihonBarengManager.sendHostTouch(x, y, active = true)
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    appGraph.mihonBarengManager.sendHostTouch(x, y, active = false)
+                }
+            }
         }
     }
 

@@ -73,6 +73,33 @@ data class PointerPosition(
     var timestamp: Long = System.currentTimeMillis(),
 )
 
+@Keep
+@IgnoreExtraProperties
+data class ActiveDoodle(
+    var id: String = "",
+    var uid: String = "",
+    var userName: String = "",
+    var colorHex: String = "#FF69B4",
+    var opacity: Float = 0.85f,
+    var strokeWidth: Float = 6f,
+    var currentX: Float = 0f,
+    var currentY: Float = 0f,
+    var points: String = "",
+    var active: Boolean = false,
+    var timestamp: Long = System.currentTimeMillis(),
+)
+
+@Keep
+@IgnoreExtraProperties
+data class HostTouch(
+    var uid: String = "",
+    var userName: String = "",
+    var x: Float = 0f,
+    var y: Float = 0f,
+    var active: Boolean = false,
+    var timestamp: Long = System.currentTimeMillis(),
+)
+
 sealed interface BarengSessionState {
     data object Idle : BarengSessionState
     data class Connecting(val message: String) : BarengSessionState

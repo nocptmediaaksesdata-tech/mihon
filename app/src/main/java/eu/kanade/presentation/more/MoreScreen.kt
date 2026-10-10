@@ -39,6 +39,7 @@ fun MoreScreen(
     onClickStats: () -> Unit,
     onClickDataAndStorage: () -> Unit,
     onClickMihonBareng: () -> Unit,
+    recentMihonBarengCode: String? = null,
     onClickSettings: () -> Unit,
     onClickSupport: () -> Unit,
     onClickAbout: () -> Unit,
@@ -126,7 +127,8 @@ fun MoreScreen(
             item {
                 TextPreferenceWidget(
                     title = "MihonBareng",
-                    subtitle = "Gabung room untuk baca manga bareng teman",
+                    subtitle = recentMihonBarengCode?.let { "Room terakhir: $it • Ketuk untuk rejoin" }
+                        ?: "Gabung room untuk baca manga bareng teman",
                     icon = MaterialSymbols.Rounded.Group,
                     onPreferenceClick = onClickMihonBareng,
                 )

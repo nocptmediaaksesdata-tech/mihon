@@ -43,6 +43,36 @@ class MihonBarengPreferences(
         "",
     )
 
+    val doodleColorHex: Preference<String> = preferenceStore.getString(
+        "pref_mihon_bareng_doodle_color",
+        "#FF69B4",
+    )
+
+    val doodleOpacity: Preference<Float> = preferenceStore.getFloat(
+        "pref_mihon_bareng_doodle_opacity",
+        0.85f,
+    )
+
+    val doodleStrokeWidth: Preference<Float> = preferenceStore.getFloat(
+        "pref_mihon_bareng_doodle_stroke_width",
+        6f,
+    )
+
+    val lastRoomHostName: Preference<String> = preferenceStore.getString(
+        "pref_mihon_bareng_last_room_host",
+        "",
+    )
+
+    val lastRoomMangaTitle: Preference<String> = preferenceStore.getString(
+        "pref_mihon_bareng_last_room_manga",
+        "",
+    )
+
+    val lastRoomTimestamp: Preference<Long> = preferenceStore.getLong(
+        "pref_mihon_bareng_last_room_time",
+        0L,
+    )
+
     fun getOrCreateUserId(): String {
         val existing = localUserId.get().trim()
         if (existing.isNotEmpty()) return existing

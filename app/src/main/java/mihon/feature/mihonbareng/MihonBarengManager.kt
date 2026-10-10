@@ -23,8 +23,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import logcat.LogPriority
+import mihon.feature.mihonbareng.model.ActiveDoodle
 import mihon.feature.mihonbareng.model.BarengSessionState
 import mihon.feature.mihonbareng.model.BarengSyncMode
+import mihon.feature.mihonbareng.model.HostTouch
 import mihon.feature.mihonbareng.model.LiveReaction
 import mihon.feature.mihonbareng.model.Participant
 import mihon.feature.mihonbareng.model.PointerPosition
@@ -57,17 +59,46 @@ class MihonBarengManager(
     private val _pointerFlow = MutableStateFlow<PointerPosition?>(null)
     val pointerFlow = _pointerFlow.asStateFlow()
 
+    private val _doodleFlow = MutableStateFlow<ActiveDoodle?>(null)
+    val doodleFlow = _doodleFlow.asStateFlow()
+
+    private val _hostTouchFlow = MutableStateFlow<HostTouch?>(null)
+    val hostTouchFlow = _hostTouchFlow.asStateFlow()
+
+    private val _isConnected = MutableStateFlow(true)
+    val isConnected = _isConnected.asStateFlow()
+
     private var currentRoomRef: DatabaseReference? = null
     private var roomStateListener: ValueEventListener? = null
     private var participantsListener: ValueEventListener? = null
     private var reactionListener: ChildEventListener? = null
     private var pointerListener: ValueEventListener? = null
     private var infoListener: ValueEventListener? = null
+    private var doodleListener: ValueEventListener? = null
+    private var touchListener: ValueEventListener? = null
+    private var connectionListener: ValueEventListener? = null
 
     private var currentUserId: String = ""
 
     init {
         ensureFirebaseInitialized()
+        setupConnectionMonitor()
+    }
+
+    private fun setupConnectionMonitor() {
+        try {
+            val db = getDatabase() ?: return
+            connectionListener = object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val connected = snapshot.getValue(Boolean::class.java) ?: false
+                    _isConnected.value = connected
+                }
+
+                override fun onCancelled(error: DatabaseError) {}
+            }.also { db.getReference(".info/connected").addValueEventListener(it) }
+        } catch (e: Exception) {
+            logcat(LogPriority.WARN, e) { "Failed to setup connection monitor" }
+        }
     }
 
     private fun ensureFirebaseInitialized(): Boolean {
@@ -198,6 +229,9 @@ class MihonBarengManager(
             attachRoomListeners(roomRef, uid)
 
             preferences.lastRoomCode.set(roomId)
+            preferences.lastRoomHostName.set(userName)
+            preferences.lastRoomMangaTitle.set(mangaTitle)
+            preferences.lastRoomTimestamp.set(System.currentTimeMillis())
             _sessionState.value = BarengSessionState.Active(
                 roomInfo = roomInfo,
                 isHost = true,
@@ -252,6 +286,9 @@ class MihonBarengManager(
             attachRoomListeners(roomRef, uid)
 
             preferences.lastRoomCode.set(cleanCode)
+            preferences.lastRoomHostName.set(roomInfo.hostName)
+            preferences.lastRoomMangaTitle.set(roomInfo.mangaTitle)
+            preferences.lastRoomTimestamp.set(System.currentTimeMillis())
             _sessionState.value = BarengSessionState.Active(
                 roomInfo = roomInfo,
                 isHost = isHost,
@@ -341,6 +378,34 @@ class MihonBarengManager(
                 logcat(LogPriority.WARN) { "Room info listener cancelled: ${error.message}" }
             }
         }.also { roomRef.child("info").addValueEventListener(it) }
+
+        // 6. Listen for Doodle
+        doodleListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val doodle = snapshot.getValue(ActiveDoodle::class.java)
+                if (doodle != null && doodle.uid != uid) {
+                    _doodleFlow.value = doodle
+                } else if (doodle == null) {
+                    _doodleFlow.value = null
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {}
+        }.also { roomRef.child("doodle").addValueEventListener(it) }
+
+        // 7. Listen for Host Touch
+        touchListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val touch = snapshot.getValue(HostTouch::class.java)
+                if (touch != null && touch.uid != uid) {
+                    _hostTouchFlow.value = touch
+                } else if (touch == null) {
+                    _hostTouchFlow.value = null
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {}
+        }.also { roomRef.child("touch").addValueEventListener(it) }
     }
 
     private fun detachListeners() {
@@ -350,12 +415,16 @@ class MihonBarengManager(
         reactionListener?.let { roomRef.child("reactions").removeEventListener(it) }
         pointerListener?.let { roomRef.child("pointer").removeEventListener(it) }
         infoListener?.let { roomRef.child("info").removeEventListener(it) }
+        doodleListener?.let { roomRef.child("doodle").removeEventListener(it) }
+        touchListener?.let { roomRef.child("touch").removeEventListener(it) }
 
         roomStateListener = null
         participantsListener = null
         reactionListener = null
         pointerListener = null
         infoListener = null
+        doodleListener = null
+        touchListener = null
         lastSentChapterUrl = null
     }
 
@@ -491,6 +560,62 @@ class MihonBarengManager(
         roomRef.child("pointer").setValue(pointer)
     }
 
+    fun sendDoodle(
+        id: String,
+        colorHex: String,
+        opacity: Float,
+        strokeWidth: Float,
+        currentX: Float,
+        currentY: Float,
+        points: String,
+        active: Boolean,
+    ) {
+        val currentSession = _sessionState.value as? BarengSessionState.Active ?: return
+        val roomRef = currentRoomRef ?: return
+
+        val doodle = ActiveDoodle(
+            id = id,
+            uid = currentSession.currentUserId,
+            userName = currentSession.currentUserName,
+            colorHex = colorHex,
+            opacity = opacity,
+            strokeWidth = strokeWidth,
+            currentX = currentX,
+            currentY = currentY,
+            points = points,
+            active = active,
+            timestamp = System.currentTimeMillis(),
+        )
+        roomRef.child("doodle").setValue(doodle)
+    }
+
+    private var lastTouchSentTime = 0L
+
+    fun sendHostTouch(x: Float, y: Float, active: Boolean) {
+        val currentSession = _sessionState.value as? BarengSessionState.Active ?: return
+        if (!currentSession.isHost) return
+        val roomRef = currentRoomRef ?: return
+
+        val now = System.currentTimeMillis()
+        if (active && now - lastTouchSentTime < 40L) return
+        lastTouchSentTime = now
+
+        val touch = HostTouch(
+            uid = currentSession.currentUserId,
+            userName = currentSession.currentUserName,
+            x = x,
+            y = y,
+            active = active,
+            timestamp = now,
+        )
+        roomRef.child("touch").setValue(touch)
+    }
+
+    fun reconnect() {
+        val db = getDatabase() ?: return
+        db.goOnline()
+    }
+
     fun leaveRoom() {
         val active = _sessionState.value as? BarengSessionState.Active
         val roomRef = currentRoomRef
@@ -511,5 +636,7 @@ class MihonBarengManager(
         _participants.value = emptyList()
         _remoteState.value = null
         _pointerFlow.value = null
+        _doodleFlow.value = null
+        _hostTouchFlow.value = null
     }
 }
