@@ -38,6 +38,7 @@ import mihon.app.di.appGraph
 import mihon.feature.mihonbareng.MihonBarengManager
 import mihon.feature.mihonbareng.MihonBarengPreferences
 import mihon.feature.mihonbareng.MihonBarengResolver
+import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Refresh
 
 @Composable
