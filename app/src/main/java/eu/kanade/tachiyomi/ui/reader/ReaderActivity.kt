@@ -149,6 +149,8 @@ class ReaderActivity : BaseActivity() {
     var isScrollingThroughPages = false
         private set
 
+    private var pendingRemoteChapterUrl: String? = null
+
     /**
      * Called when the activity is created. Initializes the presenter and configuration.
      */
@@ -222,7 +224,17 @@ class ReaderActivity : BaseActivity() {
             .map { it.viewerChapters }
             .distinctUntilChanged()
             .filterNotNull()
-            .onEach(::setChapters)
+            .onEach { chapters ->
+                setChapters(chapters)
+                val session = appGraph.mihonBarengManager.sessionState.value
+                val remote = appGraph.mihonBarengManager.remoteState.value
+                if (session is BarengSessionState.Active && !session.isHost &&
+                    session.roomInfo.mode == BarengSyncMode.STRICT && remote != null
+                ) {
+                    val viewer = viewModel.state.value.viewer as? WebtoonViewer
+                    viewer?.scrollToOffsetRatio(remote.chapterUrl, remote.pageIndex, remote.scrollOffsetRatio)
+                }
+            }
             .launchIn(lifecycleScope)
 
         viewModel.eventFlow
@@ -262,17 +274,26 @@ class ReaderActivity : BaseActivity() {
                     session.roomInfo.mode == BarengSyncMode.STRICT
                 ) {
                     val currChapter = viewModel.state.value.currentChapter?.chapter
+                    val viewer = viewModel.state.value.viewer as? WebtoonViewer
+
+                    // Check if chapter changed
                     if (currChapter != null && remote.chapterUrl.isNotEmpty() && remote.chapterUrl != currChapter.url) {
-                        if (viewModel.state.value.viewerChapters?.nextChapter?.chapter?.url == remote.chapterUrl) {
-                            loadNextChapter()
-                        } else if (viewModel.state.value.viewerChapters?.prevChapter?.chapter?.url ==
-                            remote.chapterUrl
-                        ) {
-                            loadPreviousChapter()
-                        } else {
-                            lifecycleScope.launchIO {
-                                val mangaId = viewModel.state.value.manga?.id
-                                if (mangaId != null) {
+                        val pageInAdapter = viewer?.hasPageForChapter(remote.chapterUrl, remote.pageIndex) == true
+                        if (!pageInAdapter && pendingRemoteChapterUrl != remote.chapterUrl) {
+                            pendingRemoteChapterUrl = remote.chapterUrl
+                            if (viewModel.state.value.viewerChapters?.nextChapter?.chapter?.url == remote.chapterUrl) {
+                                lifecycleScope.launch {
+                                    viewModel.loadNextChapter()
+                                }
+                            } else if (viewModel.state.value.viewerChapters?.prevChapter?.chapter?.url ==
+                                remote.chapterUrl
+                            ) {
+                                lifecycleScope.launch {
+                                    viewModel.loadPreviousChapter()
+                                }
+                            } else {
+                                lifecycleScope.launchIO {
+                                    val mangaId = viewModel.state.value.manga?.id ?: return@launchIO
                                     val newChapter = appGraph.getChapterByUrlAndMangaId.await(
                                         remote.chapterUrl,
                                         mangaId,
@@ -288,11 +309,12 @@ class ReaderActivity : BaseActivity() {
                                 }
                             }
                         }
+                    } else if (currChapter != null && remote.chapterUrl == currChapter.url) {
+                        pendingRemoteChapterUrl = null
                     }
 
-                    val viewer = viewModel.state.value.viewer as? WebtoonViewer
                     if (viewer != null) {
-                        viewer.scrollToOffsetRatio(remote.pageIndex, remote.scrollOffsetRatio)
+                        viewer.scrollToOffsetRatio(remote.chapterUrl, remote.pageIndex, remote.scrollOffsetRatio)
                     } else {
                         val currentPageIdx = viewModel.state.value.currentPage - 1
                         if (remote.pageIndex in 0 until viewModel.state.value.totalPages &&
@@ -313,7 +335,19 @@ class ReaderActivity : BaseActivity() {
             .onEach { chapter ->
                 val session = appGraph.mihonBarengManager.sessionState.value
                 if (session is BarengSessionState.Active && session.isHost) {
-                    appGraph.mihonBarengManager.updateChapter(chapter.chapter.url, chapter.chapter.name)
+                    val viewer = viewModel.state.value.viewer as? WebtoonViewer
+                    val scrollPos = viewer?.getCurrentScrollPosition()
+                    val (pageIdx, ratio) = if (scrollPos != null && scrollPos.chapterUrl == chapter.chapter.url) {
+                        Pair(scrollPos.pageIndex, scrollPos.offsetRatio)
+                    } else {
+                        Pair(0, 0f)
+                    }
+                    appGraph.mihonBarengManager.updateChapter(
+                        chapterUrl = chapter.chapter.url,
+                        chapterName = chapter.chapter.name,
+                        pageIndex = pageIdx,
+                        scrollOffsetRatio = ratio,
+                    )
                 }
             }
             .launchIn(lifecycleScope)
@@ -825,11 +859,10 @@ class ReaderActivity : BaseActivity() {
         if (session is BarengSessionState.Active && session.isHost) {
             val viewer = viewModel.state.value.viewer as? WebtoonViewer ?: return
             val scrollPos = viewer.getCurrentScrollPosition() ?: return
-            val currChapter = viewModel.state.value.currentChapter?.chapter
             appGraph.mihonBarengManager.updateScrollPosition(
-                pageIndex = scrollPos.first,
-                scrollOffsetRatio = scrollPos.second,
-                chapterUrl = currChapter?.url,
+                pageIndex = scrollPos.pageIndex,
+                scrollOffsetRatio = scrollPos.offsetRatio,
+                chapterUrl = scrollPos.chapterUrl,
                 force = isIdle,
             )
         }

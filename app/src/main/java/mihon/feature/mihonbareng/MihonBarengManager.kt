@@ -356,9 +356,11 @@ class MihonBarengManager(
         reactionListener = null
         pointerListener = null
         infoListener = null
+        lastSentChapterUrl = null
     }
 
     private var lastScrollSyncTime = 0L
+    private var lastSentChapterUrl: String? = null
 
     fun updatePage(pageIndex: Int, scrollOffsetRatio: Float = 0f, chapterUrl: String? = null) {
         val active = _sessionState.value as? BarengSessionState.Active ?: return
@@ -372,8 +374,10 @@ class MihonBarengManager(
 
         // If host, update room state
         if (active.isHost) {
+            val targetChapterUrl = chapterUrl ?: active.roomInfo.chapterUrl
+            lastSentChapterUrl = targetChapterUrl
             val state = RoomState(
-                chapterUrl = chapterUrl ?: active.roomInfo.chapterUrl,
+                chapterUrl = targetChapterUrl,
                 pageIndex = pageIndex,
                 scrollOffsetRatio = scrollOffsetRatio,
                 updatedBy = active.currentUserId,
@@ -399,8 +403,11 @@ class MihonBarengManager(
         }
         lastScrollSyncTime = now
 
+        val targetChapterUrl = chapterUrl ?: active.roomInfo.chapterUrl
+        lastSentChapterUrl = targetChapterUrl
+
         val state = RoomState(
-            chapterUrl = chapterUrl ?: active.roomInfo.chapterUrl,
+            chapterUrl = targetChapterUrl,
             pageIndex = pageIndex,
             scrollOffsetRatio = scrollOffsetRatio,
             updatedBy = active.currentUserId,
@@ -427,21 +434,31 @@ class MihonBarengManager(
         roomRef.child("info").child("syncMode").setValue(mode.name)
     }
 
-    fun updateChapter(chapterUrl: String, chapterName: String) {
+    fun updateChapter(
+        chapterUrl: String,
+        chapterName: String,
+        pageIndex: Int = 0,
+        scrollOffsetRatio: Float = 0f,
+    ) {
         val active = _sessionState.value as? BarengSessionState.Active ?: return
         if (!active.isHost) return
         val roomRef = currentRoomRef ?: return
 
         roomRef.child("info").child("chapterUrl").setValue(chapterUrl)
         roomRef.child("info").child("chapterName").setValue(chapterName)
-        roomRef.child("state").setValue(
-            RoomState(
-                chapterUrl = chapterUrl,
-                pageIndex = 0,
-                updatedBy = active.currentUserId,
-                updatedAt = System.currentTimeMillis(),
-            ),
-        )
+
+        if (lastSentChapterUrl != chapterUrl) {
+            lastSentChapterUrl = chapterUrl
+            roomRef.child("state").setValue(
+                RoomState(
+                    chapterUrl = chapterUrl,
+                    pageIndex = pageIndex,
+                    scrollOffsetRatio = scrollOffsetRatio,
+                    updatedBy = active.currentUserId,
+                    updatedAt = System.currentTimeMillis(),
+                ),
+            )
+        }
     }
 
     fun sendReaction(emoji: String) {

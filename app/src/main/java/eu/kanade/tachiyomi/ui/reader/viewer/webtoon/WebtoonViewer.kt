@@ -274,25 +274,51 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
         }
     }
 
-    fun getCurrentScrollPosition(): Pair<Int, Float>? {
+    fun getCurrentScrollPosition(): WebtoonScrollPosition? {
         val firstPos = layoutManager.findFirstVisibleItemPosition()
         if (firstPos == RecyclerView.NO_POSITION) return null
         val child = layoutManager.findViewByPosition(firstPos) ?: return null
         val item = adapter.items.getOrNull(firstPos)
-        val targetItem = if (item is ReaderPage) item else adapter.items.getOrNull(firstPos + 1) as? ReaderPage
-        val targetChild = if (item is ReaderPage) child else layoutManager.findViewByPosition(firstPos + 1)
+
+        val (targetItem, targetChild) = when (item) {
+            is ReaderPage -> Pair(item, child)
+            else -> {
+                val nextItem = adapter.items.getOrNull(firstPos + 1) as? ReaderPage
+                val nextChild = layoutManager.findViewByPosition(firstPos + 1)
+                val prevItem = adapter.items.getOrNull(firstPos - 1) as? ReaderPage
+                val prevChild = layoutManager.findViewByPosition(firstPos - 1)
+                if (nextChild != null && nextChild.top <= 0 && nextItem != null) {
+                    Pair(nextItem, nextChild)
+                } else if (prevItem != null && prevChild != null && prevChild.height > 0) {
+                    Pair(prevItem, prevChild)
+                } else if (nextItem != null && nextChild != null && nextChild.height > 0) {
+                    Pair(nextItem, nextChild)
+                } else {
+                    Pair(null, null)
+                }
+            }
+        }
+
         if (targetItem != null && targetChild != null && targetChild.height > 0) {
             val topOffset = -targetChild.top.toFloat()
             val ratio = (topOffset / targetChild.height.toFloat()).coerceIn(0f, 1f)
-            return Pair(targetItem.number - 1, ratio)
+            return WebtoonScrollPosition(targetItem.chapter.chapter.url, targetItem.number - 1, ratio)
         }
         return null
     }
 
+    fun hasPageForChapter(chapterUrl: String, pageIndex: Int): Boolean {
+        return adapter.items.filterIsInstance<ReaderPage>().any {
+            it.chapter.chapter.url == chapterUrl && it.number - 1 == pageIndex
+        }
+    }
+
     private var scrollAnimator: ValueAnimator? = null
 
-    fun scrollToOffsetRatio(pageIndex: Int, offsetRatio: Float) {
-        val page = adapter.items.filterIsInstance<ReaderPage>().firstOrNull { it.number - 1 == pageIndex } ?: return
+    fun scrollToOffsetRatio(chapterUrl: String? = null, pageIndex: Int, offsetRatio: Float) {
+        val page = adapter.items.filterIsInstance<ReaderPage>().firstOrNull {
+            (chapterUrl.isNullOrEmpty() || it.chapter.chapter.url == chapterUrl) && it.number - 1 == pageIndex
+        } ?: return
         val adapterPos = adapter.items.indexOf(page)
         if (adapterPos == -1) return
 
@@ -421,3 +447,9 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
 
 // Double the cache size to reduce rebinds/recycles incurred by the extra layout space on scroll direction changes
 private const val RECYCLER_VIEW_CACHE_SIZE = 4
+
+data class WebtoonScrollPosition(
+    val chapterUrl: String,
+    val pageIndex: Int,
+    val offsetRatio: Float,
+)
